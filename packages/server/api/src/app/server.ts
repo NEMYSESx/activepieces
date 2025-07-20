@@ -12,6 +12,9 @@ import { healthModule } from './health/health.module'
 import { errorHandler } from './helper/error-handler'
 import { system } from './helper/system/system'
 import { setupWorker } from './worker'
+import jwksRsa from 'jwks-rsa';
+import { expressjwt as jwt } from 'express-jwt';
+import { FastifyRequest, FastifyReply } from 'fastify';
 
 
 export const setupServer = async (): Promise<FastifyInstance> => {
@@ -87,6 +90,37 @@ async function setupBaseApp(): Promise<FastifyInstance> {
         app.getDefaultJsonParser('ignore', 'ignore'),
     )
     await app.register(healthModule)
+
+    // Auth0 JWT validation middleware
+    app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+        // Skip public routes (e.g., health checks)
+        if (request.routerPath && request.routerPath.startsWith('/health')) {
+            return;
+        }
+        const middleware = jwt({
+            secret: jwksRsa.expressJwtSecret({
+                cache: true,
+                rateLimit: true,
+                jwksRequestsPerMinute: 5,
+                jwksUri: 'https://YOUR_AUTH0_DOMAIN/.well-known/jwks.json',
+            }),
+            audience: 'YOUR_AUTH0_API_AUDIENCE',
+            issuer: 'https://YOUR_AUTH0_DOMAIN/',
+            algorithms: ['RS256'],
+            credentialsRequired: true,
+        });
+        // Promisify the middleware for Fastify
+        await new Promise((resolve, reject) => {
+            middleware(request.raw, reply.raw, (err: any) => {
+                if (err) {
+                    reply.status(401).send({ message: 'Unauthorized', error: err.message });
+                    reject(err);
+                } else {
+                    resolve(null);
+                }
+            });
+        });
+    });
 
     return app
 }

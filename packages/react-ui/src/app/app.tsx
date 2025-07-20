@@ -34,6 +34,7 @@ import { ChangelogProvider } from './components/changelog-provider';
 import { EmbeddingFontLoader } from './components/embedding-font-loader';
 import { InitialDataGuard } from './components/initial-data-guard';
 import { ApRouter } from './router';
+import { useAuth0 } from '@auth0/auth0-react';
 
 const queryClient = new QueryClient({
   mutationCache: new MutationCache({
@@ -64,28 +65,47 @@ if (!typesFormatsAdded) {
 
 export function App() {
   const { i18n } = useTranslation();
+  const { loginWithRedirect, logout, isAuthenticated, user, isLoading } = useAuth0();
   return (
-    <QueryClientProvider client={queryClient}>
-      <EmbeddingProvider>
-        <InitialDataGuard>
-          <EmbeddingFontLoader>
-            <TelemetryProvider>
-              <TooltipProvider>
-                <React.Fragment key={i18n.language}>
-                  <ThemeProvider storageKey="vite-ui-theme">
-                    <SidebarProvider>
-                      <ApRouter />
-                      <Toaster />
-                      <ChangelogProvider />
-                    </SidebarProvider>
-                  </ThemeProvider>
-                </React.Fragment>
-              </TooltipProvider>
-            </TelemetryProvider>
-          </EmbeddingFontLoader>
-        </InitialDataGuard>
-      </EmbeddingProvider>
-    </QueryClientProvider>
+    <>
+      {/* Auth0 Login/Logout UI Example */}
+      <div style={{ padding: '1rem', background: '#f5f5f5', marginBottom: '1rem' }}>
+        {isLoading ? (
+          <span>Loading authentication...</span>
+        ) : isAuthenticated ? (
+          <>
+            <span>Welcome, {user?.name || user?.email}!</span>
+            <button style={{ marginLeft: 8 }} onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+              Log out
+            </button>
+          </>
+        ) : (
+          <button onClick={() => loginWithRedirect()}>Log in with Auth0</button>
+        )}
+      </div>
+      {/* End Auth0 UI Example */}
+      <QueryClientProvider client={queryClient}>
+        <EmbeddingProvider>
+          <InitialDataGuard>
+            <EmbeddingFontLoader>
+              <TelemetryProvider>
+                <TooltipProvider>
+                  <React.Fragment key={i18n.language}>
+                    <ThemeProvider storageKey="vite-ui-theme">
+                      <SidebarProvider>
+                        <ApRouter />
+                        <Toaster />
+                        <ChangelogProvider />
+                      </SidebarProvider>
+                    </ThemeProvider>
+                  </React.Fragment>
+                </TooltipProvider>
+              </TelemetryProvider>
+            </EmbeddingFontLoader>
+          </InitialDataGuard>
+        </EmbeddingProvider>
+      </QueryClientProvider>
+    </>
   );
 }
 
